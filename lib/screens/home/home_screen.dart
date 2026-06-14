@@ -1,30 +1,44 @@
+import 'package:business_card_flutter/models/user_profile.dart';
+import 'package:business_card_flutter/providers/profile_provider.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 
 const _backgroundColor = Color(0xFFCFDBF5);
 const _accentColor = Color(0xFF1D5CFF);
 
-class HomeScreen extends StatelessWidget {
+class HomeScreen extends ConsumerWidget {
   const HomeScreen({super.key});
 
   @override
-  Widget build(BuildContext context) {
-    return const Scaffold(
+  Widget build(BuildContext context, WidgetRef ref) {
+    final profile = ref.watch(profileProvider);
+
+    if (profile == null) {
+      return const Scaffold(
+        body: Center(
+          child: CircularProgressIndicator(),
+        ),
+      );
+    }
+
+    return Scaffold(
       backgroundColor: _backgroundColor,
       body: SafeArea(
         child: SingleChildScrollView(
           child: Column(
             children: [
-              _Header(),
+              const _Header(),
               Padding(
-                padding: EdgeInsets.fromLTRB(20, 24, 20, 32),
+                padding: const EdgeInsets.fromLTRB(20, 24, 20, 32),
                 child: Column(
                   children: [
-                    _QrSection(),
-                    SizedBox(height: 24),
-                    _ActionsRow(),
-                    SizedBox(height: 28),
-                    _BusinessCard(),
+                    _QrSection(profile: profile),
+                    const SizedBox(height: 24),
+                    const _ActionsRow(),
+                    const SizedBox(height: 28),
+                    _BusinessCard(profile: profile),
                   ],
                 ),
               ),
@@ -79,7 +93,6 @@ class _Header extends StatelessWidget {
                     'Messages screen coming soon',
                   ),
                   icon: const Icon(Icons.chat_bubble_outline),
-                  tooltip: 'Chat',
                 ),
                 IconButton(
                   onPressed: () => _showPlaceholder(
@@ -87,7 +100,6 @@ class _Header extends StatelessWidget {
                     'Notifications screen coming soon',
                   ),
                   icon: const Icon(Icons.notifications_none),
-                  tooltip: 'Notifications',
                 ),
               ],
             ),
@@ -99,10 +111,16 @@ class _Header extends StatelessWidget {
 }
 
 class _QrSection extends StatelessWidget {
-  const _QrSection();
+  const _QrSection({
+    required this.profile,
+  });
+
+  final UserProfile profile;
 
   @override
   Widget build(BuildContext context) {
+    final qrData = profile.email ?? profile.mobileNumber ?? profile.name;
+
     return Column(
       children: [
         Container(
@@ -113,7 +131,7 @@ class _QrSection extends StatelessWidget {
             borderRadius: BorderRadius.circular(20),
           ),
           child: QrImageView(
-            data: 'manas-tiwari-business-card',
+            data: qrData,
             size: 190,
             backgroundColor: Colors.white,
           ),
@@ -137,20 +155,25 @@ class _ActionsRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const Row(
+    return Row(
       mainAxisAlignment: MainAxisAlignment.spaceEvenly,
       children: [
         _ActionButton(
           icon: Icons.phone,
           label: '1 Touch',
+          onTap: () {},
         ),
         _ActionButton(
           icon: Icons.send,
           label: 'Send',
+          onTap: () {},
         ),
         _ActionButton(
           icon: Icons.qr_code_scanner,
           label: 'Scan',
+          onTap: () {
+            context.push('/camera');
+          },
         ),
       ],
     );
@@ -161,10 +184,12 @@ class _ActionButton extends StatelessWidget {
   const _ActionButton({
     required this.icon,
     required this.label,
+    required this.onTap,
   });
 
   final IconData icon;
   final String label;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
@@ -175,7 +200,7 @@ class _ActionButton extends StatelessWidget {
           shape: const CircleBorder(),
           child: InkWell(
             customBorder: const CircleBorder(),
-            onTap: () {},
+            onTap: onTap,
             child: SizedBox(
               width: 58,
               height: 58,
@@ -200,7 +225,11 @@ class _ActionButton extends StatelessWidget {
 }
 
 class _BusinessCard extends StatelessWidget {
-  const _BusinessCard();
+  const _BusinessCard({
+    required this.profile,
+  });
+
+  final UserProfile profile;
 
   @override
   Widget build(BuildContext context) {
@@ -211,36 +240,48 @@ class _BusinessCard extends StatelessWidget {
         color: Colors.white,
         borderRadius: BorderRadius.circular(20),
       ),
-      child: const Column(
+      child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'Manas Tiwari',
-            style: TextStyle(
+            profile.name,
+            style: const TextStyle(
               fontSize: 24,
               fontWeight: FontWeight.bold,
             ),
           ),
-          SizedBox(height: 18),
-          Divider(),
-          SizedBox(height: 14),
-          Text(
-            'Email',
-            style: TextStyle(
-              color: Colors.black54,
-              fontSize: 13,
-              fontWeight: FontWeight.w500,
+          if (profile.position != null) ...[
+            const SizedBox(height: 6),
+            Text(profile.position!),
+          ],
+          if (profile.companyName != null) ...[
+            const SizedBox(height: 4),
+            Text(
+              profile.companyName!,
+              style: const TextStyle(
+                color: Colors.black54,
+              ),
             ),
-          ),
-          SizedBox(height: 6),
-          Text(
-            'official.manastiwari2101@gmail.com',
-            style: TextStyle(
-              color: _accentColor,
-              fontSize: 15,
-              fontWeight: FontWeight.w500,
+          ],
+          const SizedBox(height: 18),
+          const Divider(),
+          const SizedBox(height: 14),
+          if (profile.email != null)
+            Text(
+              "Email: ${profile.email!}",
+              style: const TextStyle(
+                color: _accentColor,
+                fontWeight: FontWeight.w500,
+              ),
             ),
-          ),
+          if (profile.mobileNumber != null) ...[
+            const SizedBox(height: 8),
+            Text("Mobile: ${profile.mobileNumber!}"),
+          ],
+          if (profile.websiteUrl != null) ...[
+            const SizedBox(height: 8),
+            Text("Website: ${profile.websiteUrl!}"),
+          ],
         ],
       ),
     );
