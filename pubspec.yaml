@@ -1,0 +1,54 @@
+name: business_card_flutter
+description: "A new Flutter project."
+publish_to: 'none'
+
+version: 1.0.0+1
+
+environment:
+  sdk: ^3.12.2
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  cupertino_icons: ^1.0.8
+
+  # State management
+  flutter_riverpod: ^2.6.1
+
+  # Navigation
+  go_router: ^16.0.0
+
+  # Networking
+  dio: ^5.9.0
+
+  # Local storage
+  hive: ^2.2.3
+  hive_flutter: ^1.1.0
+  flutter_secure_storage: ^9.2.4
+
+  # Camera + OCR
+  camera: ^0.11.2
+  google_mlkit_text_recognition: ^0.15.0
+
+  # Contacts
+  flutter_contacts: ^1.1.9+2
+
+  # Notifications
+  firebase_messaging: ^16.0.0
+  flutter_local_notifications: ^19.4.0
+
+  # Utilities
+  intl: ^0.20.2
+  uuid: ^4.5.1
+  qr_flutter: ^4.1.0
+  path_provider: ^2.1.5
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+
+  flutter_lints: ^6.0.0
+
+flutter:
+  uses-material-design: true
