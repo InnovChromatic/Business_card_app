@@ -20,6 +20,11 @@ class BusinessCardStorageService {
     await box.put(card.id, card.toMap());
   }
 
+  Future<void> deleteCard(String id) async {
+    final box = _getBox();
+    await box.delete(id);
+  }
+
   List<BusinessCard> getAllCards() {
     final box = _getBox();
 

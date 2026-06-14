@@ -1,4 +1,5 @@
 import 'package:business_card_flutter/models/business_card.dart';
+import 'package:business_card_flutter/screens/contacts/contact_detail_screen.dart';
 import 'package:business_card_flutter/services/business_card_storage_service.dart';
 import 'package:flutter/material.dart';
 
@@ -90,6 +91,18 @@ class _ContactsScreenState extends State<ContactsScreen> {
     setState(() {
       _sortMode = mode;
     });
+  }
+
+  Future<void> _openContact(BusinessCard card) async {
+    final wasDeleted = await Navigator.of(context).push<bool>(
+      MaterialPageRoute(
+        builder: (context) => ContactDetailScreen(card: card),
+      ),
+    );
+
+    if (wasDeleted == true && mounted) {
+      await _loadCards();
+    }
   }
 
   Future<void> _editMemo(BusinessCard card) async {
@@ -214,6 +227,7 @@ class _ContactsScreenState extends State<ContactsScreen> {
         final card = cards[index];
         return _ContactCard(
           card: card,
+          onTap: () => _openContact(card),
           onLongPress: () => _editMemo(card),
         );
       },
@@ -251,7 +265,13 @@ class _SearchRow extends StatelessWidget {
           ),
           const SizedBox(width: 10),
           TextButton(
-            onPressed: () {},
+            onPressed: () {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('Tag search coming soon'),
+                ),
+              );
+            },
             child: const Text('Search tags'),
           ),
         ],
@@ -457,10 +477,12 @@ class _EmptyState extends StatelessWidget {
 class _ContactCard extends StatelessWidget {
   const _ContactCard({
     required this.card,
+    required this.onTap,
     required this.onLongPress,
   });
 
   final BusinessCard card;
+  final VoidCallback onTap;
   final VoidCallback onLongPress;
 
   @override
@@ -473,6 +495,7 @@ class _ContactCard extends StatelessWidget {
       borderRadius: BorderRadius.circular(16),
       child: InkWell(
         borderRadius: BorderRadius.circular(16),
+        onTap: onTap,
         onLongPress: onLongPress,
         child: Padding(
           padding: const EdgeInsets.all(16),
