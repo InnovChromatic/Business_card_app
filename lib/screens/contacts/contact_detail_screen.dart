@@ -4,12 +4,10 @@ import 'package:business_card_flutter/models/business_card.dart';
 import 'package:business_card_flutter/providers/contacts_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 class ContactDetailScreen extends ConsumerStatefulWidget {
-  const ContactDetailScreen({
-    required this.card,
-    super.key,
-  });
+  const ContactDetailScreen({required this.card, super.key});
 
   final BusinessCard card;
 
@@ -18,8 +16,7 @@ class ContactDetailScreen extends ConsumerStatefulWidget {
       _ContactDetailScreenState();
 }
 
-class _ContactDetailScreenState
-    extends ConsumerState<ContactDetailScreen> {
+class _ContactDetailScreenState extends ConsumerState<ContactDetailScreen> {
   bool _isDeleting = false;
 
   BusinessCard get _card => widget.card;
@@ -29,10 +26,69 @@ class _ContactDetailScreenState
     return name.isEmpty ? '?' : name.substring(0, 1).toUpperCase();
   }
 
-  void _showActionMessage(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(message)),
-    );
+  Future<void> _openEmail() async {
+    if (_card.email == null) return;
+
+    try {
+      final uri = Uri(scheme: 'mailto', path: _card.email!.trim());
+
+      print('Launching email: $uri');
+
+      await launchUrl(uri, mode: LaunchMode.externalApplication);
+    } catch (e) {
+      print('Email error: $e');
+
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Email error: $e')));
+    }
+  }
+
+  Future<void> _callContact() async {
+    if (_card.phone == null) return;
+
+    try {
+      final cleanedPhone = _card.phone!.replaceAll(' ', '');
+
+      final uri = Uri(scheme: 'tel', path: cleanedPhone);
+
+      print('Launching phone: $uri');
+
+      await launchUrl(uri, mode: LaunchMode.externalApplication);
+    } catch (e) {
+      print('Call error: $e');
+
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Call error: $e')));
+    }
+  }
+
+  Future<void> _openWebsite() async {
+    if (_card.website == null) return;
+
+    try {
+      String url = _card.website!.trim();
+
+      if (!url.startsWith('http://') && !url.startsWith('https://')) {
+        url = 'https://$url';
+      }
+
+      final uri = Uri.parse(url);
+
+      print('Launching website: $uri');
+
+      await launchUrl(uri, mode: LaunchMode.externalApplication);
+    } catch (e) {
+      print('Website error: $e');
+
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Website error: $e')));
+    }
   }
 
   Future<void> _confirmDelete() async {
@@ -75,9 +131,9 @@ class _ContactDetailScreenState
         _isDeleting = false;
       });
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Failed to delete contact')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Failed to delete contact')));
     }
   }
 
@@ -123,10 +179,7 @@ class _ContactDetailScreenState
                 Text(
                   _card.company!,
                   textAlign: TextAlign.center,
-                  style: const TextStyle(
-                    color: Colors.black54,
-                    fontSize: 17,
-                  ),
+                  style: const TextStyle(color: Colors.black54, fontSize: 17),
                 ),
               ],
               if (_card.designation != null) ...[
@@ -134,10 +187,7 @@ class _ContactDetailScreenState
                 Text(
                   _card.designation!,
                   textAlign: TextAlign.center,
-                  style: const TextStyle(
-                    color: Colors.black45,
-                    fontSize: 15,
-                  ),
+                  style: const TextStyle(color: Colors.black45, fontSize: 15),
                 ),
               ],
               const SizedBox(height: 24),
@@ -145,9 +195,9 @@ class _ContactDetailScreenState
                 hasPhone: _card.phone != null,
                 hasEmail: _card.email != null,
                 hasWebsite: _card.website != null,
-                onCall: () => _showActionMessage('Calling contact...'),
-                onEmail: () => _showActionMessage('Opening email...'),
-                onWebsite: () => _showActionMessage('Opening website...'),
+                onCall: _callContact,
+                onEmail: _openEmail,
+                onWebsite: _openWebsite,
               ),
               const SizedBox(height: 24),
               if (_card.email != null)
@@ -178,10 +228,7 @@ class _ContactDetailScreenState
                 const SizedBox(height: 8),
                 const Text(
                   'Original Card',
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.w700,
-                  ),
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
                 ),
                 const SizedBox(height: 12),
                 ClipRRect(
@@ -293,11 +340,7 @@ class _ActionButton extends StatelessWidget {
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon),
-          const SizedBox(height: 5),
-          Text(label),
-        ],
+        children: [Icon(icon), const SizedBox(height: 5), Text(label)],
       ),
     );
   }
