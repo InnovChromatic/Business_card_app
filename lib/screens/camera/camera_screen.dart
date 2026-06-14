@@ -1,6 +1,8 @@
 import 'package:business_card_flutter/models/scanned_card.dart';
 import 'package:business_card_flutter/providers/camera_provider.dart';
+import 'package:business_card_flutter/screens/camera/card_review_screen.dart';
 import 'package:business_card_flutter/services/camera_service.dart';
+import 'package:business_card_flutter/services/card_parser_service.dart';
 import 'package:business_card_flutter/services/card_storage_service.dart';
 import 'package:business_card_flutter/services/ocr_service.dart';
 import 'package:camera/camera.dart';
@@ -18,6 +20,7 @@ class _CameraScreenState extends ConsumerState<CameraScreen> {
   final CameraService _cameraService = CameraService();
   final OcrService _ocrService = OcrService();
   final CardStorageService _storageService = CardStorageService();
+  final CardParserService _parserService = CardParserService();
 
   CameraController? _controller;
   String? _errorMessage;
@@ -33,7 +36,6 @@ class _CameraScreenState extends ConsumerState<CameraScreen> {
 
     try {
       final controller = await _cameraService.initializeCamera();
-
       if (!mounted) {
         await _cameraService.disposeCamera(controller);
         return;
@@ -46,14 +48,10 @@ class _CameraScreenState extends ConsumerState<CameraScreen> {
       ref.read(cameraStateProvider.notifier).state = CameraState.ready;
     } on CameraException catch (error) {
       if (!mounted) return;
-
-      setState(() {
-        _errorMessage = _cameraErrorMessage(error);
-      });
+      setState(() => _errorMessage = _cameraErrorMessage(error));
       ref.read(cameraStateProvider.notifier).state = CameraState.error;
     } catch (_) {
       if (!mounted) return;
-
       setState(() {
         _errorMessage = 'Unable to start the camera. Please try again.';
       });
@@ -76,17 +74,13 @@ class _CameraScreenState extends ConsumerState<CameraScreen> {
     try {
       final image = await _cameraService.captureImage(controller);
       final rawText = await _ocrService.extractText(image.path);
-
-      if (!mounted) {
-        ref.read(cameraStateProvider.notifier).state = CameraState.ready;
-        return;
-      }
+      if (!mounted) return;
 
       ref.read(cameraStateProvider.notifier).state = CameraState.ready;
 
       final now = DateTime.now();
       final card = ScannedCard(
-        id: now.millisecondsSinceEpoch.toString(),
+        id: now.microsecondsSinceEpoch.toString(),
         imagePath: image.path,
         rawText: rawText,
         synced: false,
@@ -96,51 +90,29 @@ class _CameraScreenState extends ConsumerState<CameraScreen> {
       try {
         await _storageService.saveCard(card);
       } catch (_) {
-        if (!mounted) {
-          ref.read(cameraStateProvider.notifier).state = CameraState.ready;
-          return;
-        }
-
+        if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Scan save failed locally')),
         );
       }
 
       if (!mounted) return;
-      await _showOcrResult(rawText);
+      final parsedData = _parserService.parse(rawText);
+      await Navigator.of(context).push<void>(
+        MaterialPageRoute(
+          builder: (context) => CardReviewScreen(
+            data: parsedData,
+            imagePath: image.path,
+          ),
+        ),
+      );
     } catch (_) {
       if (!mounted) return;
-
       ref.read(cameraStateProvider.notifier).state = CameraState.ready;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Scan failed. Please try again.')),
       );
     }
-  }
-
-  Future<void> _showOcrResult(String rawText) {
-    final displayText = rawText.trim().isEmpty
-        ? 'No text detected'
-        : rawText.trim();
-
-    return showDialog<void>(
-      context: context,
-      builder: (context) {
-        return AlertDialog(
-          title: const Text('OCR Result'),
-          content: ConstrainedBox(
-            constraints: const BoxConstraints(maxHeight: 420),
-            child: SingleChildScrollView(child: SelectableText(displayText)),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(),
-              child: const Text('Close'),
-            ),
-          ],
-        );
-      },
-    );
   }
 
   String _cameraErrorMessage(CameraException error) {
@@ -201,21 +173,17 @@ class _CameraTopBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
+    return const SizedBox(
       height: 64,
       child: Row(
         children: [
           Expanded(
             child: Align(
               alignment: Alignment.centerLeft,
-              child: IconButton(
-                onPressed: () => Navigator.of(context).pop(),
-                icon: const Icon(Icons.arrow_back, color: Colors.white),
-                tooltip: 'Back',
-              ),
+              child: SizedBox(width: 48),
             ),
           ),
-          const Text(
+          Text(
             'Scan Card',
             style: TextStyle(
               color: Colors.white,
@@ -227,8 +195,8 @@ class _CameraTopBar extends StatelessWidget {
             child: Align(
               alignment: Alignment.centerRight,
               child: IconButton(
-                onPressed: () {}, // placeholder for future flash logic
-                icon: const Icon(Icons.flash_off, color: Colors.white),
+                onPressed: null,
+                icon: Icon(Icons.flash_off, color: Colors.white),
                 tooltip: 'Flash',
               ),
             ),
@@ -260,7 +228,8 @@ class _CameraContent extends StatelessWidget {
       case CameraState.capturing:
       case CameraState.ready:
         final cameraController = controller;
-        if (cameraController == null || !cameraController.value.isInitialized) {
+        if (cameraController == null ||
+            !cameraController.value.isInitialized) {
           return const Center(
             child: CircularProgressIndicator(color: Colors.white),
           );
@@ -317,7 +286,8 @@ class _ScannerOverlay extends StatelessWidget {
       builder: (context, constraints) {
         final guideWidth = constraints.maxWidth - (_horizontalPadding * 2);
         final guideHeight = guideWidth / _cardAspectRatio;
-        final verticalOverlayHeight = (constraints.maxHeight - guideHeight) / 2;
+        final verticalOverlayHeight =
+            (constraints.maxHeight - guideHeight) / 2;
 
         return Stack(
           children: [
