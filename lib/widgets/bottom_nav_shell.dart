@@ -1,6 +1,6 @@
+import 'package:business_card_flutter/screens/contacts/contacts_screen.dart';
 import 'package:business_card_flutter/screens/feed/feed_screen.dart';
 import 'package:business_card_flutter/screens/home/home_screen.dart';
-import 'package:business_card_flutter/screens/messages/messages_screen.dart';
 import 'package:business_card_flutter/screens/profile/profile_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
@@ -18,7 +18,7 @@ class _BottomNavShellState extends State<BottomNavShell> {
   static const List<Widget> _screens = [
     HomeScreen(),
     FeedScreen(),
-    MessagesScreen(),
+    ContactsScreen(),
     ProfileScreen(),
   ];
 
@@ -50,26 +50,47 @@ class _BottomNavShellState extends State<BottomNavShell> {
         onTap: _onNavigationTap,
         items: const [
           BottomNavigationBarItem(
-            icon: Icon(Icons.home),
-            label: 'Home',
+            icon: Icon(Icons.import_export),
+            label: 'Exchange',
           ),
           BottomNavigationBarItem(
             icon: Icon(Icons.dynamic_feed),
             label: 'Feed',
           ),
           BottomNavigationBarItem(
-            icon: Icon(Icons.camera_alt),
+            icon: _CameraNavigationIcon(),
             label: 'Camera',
           ),
           BottomNavigationBarItem(
-            icon: Icon(Icons.message),
-            label: 'Messages',
+            icon: Icon(Icons.contacts),
+            label: 'Contacts',
           ),
           BottomNavigationBarItem(
             icon: Icon(Icons.person),
-            label: 'Profile',
+            label: 'You',
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _CameraNavigationIcon extends StatelessWidget {
+  const _CameraNavigationIcon();
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: const Color(0xFF1D5CFF),
+      elevation: 5,
+      shape: const CircleBorder(),
+      child: const SizedBox.square(
+        dimension: 46,
+        child: Icon(
+          Icons.camera_alt,
+          color: Colors.white,
+          size: 24,
+        ),
       ),
     );
   }

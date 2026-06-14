@@ -39,6 +39,12 @@ class HomeScreen extends StatelessWidget {
 class _Header extends StatelessWidget {
   const _Header();
 
+  void _showPlaceholder(BuildContext context, String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(message)),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Container(
@@ -68,12 +74,18 @@ class _Header extends StatelessWidget {
               mainAxisAlignment: MainAxisAlignment.end,
               children: [
                 IconButton(
-                  onPressed: () {},
+                  onPressed: () => _showPlaceholder(
+                    context,
+                    'Messages screen coming soon',
+                  ),
                   icon: const Icon(Icons.chat_bubble_outline),
                   tooltip: 'Chat',
                 ),
                 IconButton(
-                  onPressed: () {},
+                  onPressed: () => _showPlaceholder(
+                    context,
+                    'Notifications screen coming soon',
+                  ),
                   icon: const Icon(Icons.notifications_none),
                   tooltip: 'Notifications',
                 ),

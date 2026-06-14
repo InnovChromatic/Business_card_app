@@ -15,6 +15,11 @@ class BusinessCardStorageService {
     await box.put(card.id, card.toMap());
   }
 
+  Future<void> updateCard(BusinessCard card) async {
+    final box = _getBox();
+    await box.put(card.id, card.toMap());
+  }
+
   List<BusinessCard> getAllCards() {
     final box = _getBox();
 

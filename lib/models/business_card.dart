@@ -16,6 +16,7 @@ class BusinessCard {
     this.phone,
     this.website,
     this.imagePath,
+    this.memo,
   });
 
   final String id;
@@ -26,6 +27,7 @@ class BusinessCard {
   final String? phone;
   final String? website;
   final String? imagePath;
+  final String? memo;
   final DateTime createdAt;
   final CardSource source;
 
@@ -39,6 +41,7 @@ class BusinessCard {
       'phone': phone,
       'website': website,
       'imagePath': imagePath,
+      'memo': memo,
       'createdAt': createdAt.toIso8601String(),
       'source': source.name,
     };
@@ -54,6 +57,7 @@ class BusinessCard {
       phone: map['phone'] as String?,
       website: map['website'] as String?,
       imagePath: map['imagePath'] as String?,
+      memo: map['memo'] as String?,
       createdAt: DateTime.parse(map['createdAt'] as String),
       source: CardSource.values.byName(map['source'] as String),
     );
