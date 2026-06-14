@@ -1,9 +1,12 @@
+import 'package:business_card_flutter/models/app_notification.dart';
 import 'package:business_card_flutter/models/business_card.dart';
 import 'package:business_card_flutter/models/parsed_card_data.dart';
-import 'package:business_card_flutter/services/business_card_storage_service.dart';
+import 'package:business_card_flutter/providers/contacts_provider.dart';
+import 'package:business_card_flutter/services/notification_storage_service.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-class CardReviewScreen extends StatefulWidget {
+class CardReviewScreen extends ConsumerStatefulWidget {
   const CardReviewScreen({
     required this.data,
     required this.imagePath,
@@ -14,14 +17,14 @@ class CardReviewScreen extends StatefulWidget {
   final String imagePath;
 
   @override
-  State<CardReviewScreen> createState() => _CardReviewScreenState();
+  ConsumerState<CardReviewScreen> createState() =>
+      _CardReviewScreenState();
 }
 
-class _CardReviewScreenState extends State<CardReviewScreen> {
-  final BusinessCardStorageService _storageService =
-      BusinessCardStorageService();
+class _CardReviewScreenState extends ConsumerState<CardReviewScreen> {
+  final NotificationStorageService _notificationStorage =
+      NotificationStorageService();
 
-  late final Future<void> _storageInitialization;
   late final TextEditingController _nameController;
   late final TextEditingController _companyController;
   late final TextEditingController _designationController;
@@ -34,7 +37,7 @@ class _CardReviewScreenState extends State<CardReviewScreen> {
   @override
   void initState() {
     super.initState();
-    _storageInitialization = _storageService.initialize();
+
     _nameController = TextEditingController(text: widget.data.name);
     _companyController = TextEditingController(text: widget.data.company);
     _designationController = TextEditingController(
@@ -54,6 +57,7 @@ class _CardReviewScreenState extends State<CardReviewScreen> {
     if (_isSaving) return;
 
     final name = _nameController.text.trim();
+
     if (name.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Name is required')),
@@ -66,6 +70,7 @@ class _CardReviewScreenState extends State<CardReviewScreen> {
     });
 
     final now = DateTime.now();
+
     final card = BusinessCard(
       id: now.microsecondsSinceEpoch.toString(),
       name: name,
@@ -80,14 +85,24 @@ class _CardReviewScreenState extends State<CardReviewScreen> {
     );
 
     try {
-      await _storageInitialization;
-      await _storageService.saveCard(card);
+      await ref.read(contactsProvider.notifier).addCard(card);
+
+      await _notificationStorage.addNotification(
+        AppNotification(
+          id: DateTime.now().microsecondsSinceEpoch.toString(),
+          title: 'Business card scanned',
+          message: '${card.name} was added to contacts',
+          createdAt: DateTime.now(),
+          type: NotificationType.scanSuccess,
+        ),
+      );
 
       if (!mounted) return;
 
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Business card saved')),
       );
+
       Navigator.of(context).pop();
     } catch (_) {
       if (!mounted) return;
@@ -95,6 +110,7 @@ class _CardReviewScreenState extends State<CardReviewScreen> {
       setState(() {
         _isSaving = false;
       });
+
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Failed to save business card')),
       );
@@ -161,9 +177,8 @@ class _CardReviewScreenState extends State<CardReviewScreen> {
                 children: [
                   Expanded(
                     child: OutlinedButton(
-                      onPressed: _isSaving
-                          ? null
-                          : () => Navigator.of(context).pop(),
+                      onPressed:
+                          _isSaving ? null : () => Navigator.of(context).pop(),
                       child: const Text('Retake'),
                     ),
                   ),

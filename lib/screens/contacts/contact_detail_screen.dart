@@ -1,10 +1,11 @@
 import 'dart:io';
 
 import 'package:business_card_flutter/models/business_card.dart';
-import 'package:business_card_flutter/services/business_card_storage_service.dart';
+import 'package:business_card_flutter/providers/contacts_provider.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-class ContactDetailScreen extends StatefulWidget {
+class ContactDetailScreen extends ConsumerStatefulWidget {
   const ContactDetailScreen({
     required this.card,
     super.key,
@@ -13,13 +14,12 @@ class ContactDetailScreen extends StatefulWidget {
   final BusinessCard card;
 
   @override
-  State<ContactDetailScreen> createState() => _ContactDetailScreenState();
+  ConsumerState<ContactDetailScreen> createState() =>
+      _ContactDetailScreenState();
 }
 
-class _ContactDetailScreenState extends State<ContactDetailScreen> {
-  final BusinessCardStorageService _storageService =
-      BusinessCardStorageService();
-
+class _ContactDetailScreenState
+    extends ConsumerState<ContactDetailScreen> {
   bool _isDeleting = false;
 
   BusinessCard get _card => widget.card;
@@ -64,7 +64,7 @@ class _ContactDetailScreenState extends State<ContactDetailScreen> {
     });
 
     try {
-      await _storageService.deleteCard(_card.id);
+      await ref.read(contactsProvider.notifier).deleteCard(_card.id);
 
       if (!mounted) return;
       Navigator.of(context).pop(true);
@@ -74,6 +74,7 @@ class _ContactDetailScreenState extends State<ContactDetailScreen> {
       setState(() {
         _isDeleting = false;
       });
+
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Failed to delete contact')),
       );

@@ -1,5 +1,6 @@
 import 'package:business_card_flutter/models/user_profile.dart';
 import 'package:business_card_flutter/providers/profile_provider.dart';
+import 'package:business_card_flutter/screens/notifications/notifications_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -95,10 +96,13 @@ class _Header extends StatelessWidget {
                   icon: const Icon(Icons.chat_bubble_outline),
                 ),
                 IconButton(
-                  onPressed: () => _showPlaceholder(
-                    context,
-                    'Notifications screen coming soon',
-                  ),
+                  onPressed: () {
+                    Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (_) => const NotificationsScreen(),
+                      ),
+                    );
+                  },
                   icon: const Icon(Icons.notifications_none),
                 ),
               ],

@@ -1,66 +1,42 @@
 import 'package:business_card_flutter/models/business_card.dart';
+import 'package:business_card_flutter/providers/contacts_provider.dart';
 import 'package:business_card_flutter/screens/contacts/contact_detail_screen.dart';
-import 'package:business_card_flutter/services/business_card_storage_service.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 enum ContactsSortMode {
   byName,
   byDate,
 }
 
-class ContactsScreen extends StatefulWidget {
+class ContactsScreen extends ConsumerStatefulWidget {
   const ContactsScreen({super.key});
 
   @override
-  State<ContactsScreen> createState() => _ContactsScreenState();
+  ConsumerState<ContactsScreen> createState() => _ContactsScreenState();
 }
 
-class _ContactsScreenState extends State<ContactsScreen> {
+class _ContactsScreenState extends ConsumerState<ContactsScreen> {
   static const Color _accentColor = Color(0xFF1D5CFF);
 
-  final BusinessCardStorageService _storageService =
-      BusinessCardStorageService();
   final TextEditingController _searchController = TextEditingController();
 
-  List<BusinessCard> _cards = const [];
   ContactsSortMode _sortMode = ContactsSortMode.byName;
-  bool _isLoading = true;
-  String? _errorMessage;
 
   @override
   void initState() {
     super.initState();
     _searchController.addListener(_onSearchChanged);
-    _loadCards();
   }
 
   void _onSearchChanged() {
     setState(() {});
   }
 
-  Future<void> _loadCards() async {
-    try {
-      await _storageService.initialize();
-      final cards = _storageService.getAllCards();
-
-      if (!mounted) return;
-      setState(() {
-        _cards = cards;
-        _isLoading = false;
-        _errorMessage = null;
-      });
-    } catch (_) {
-      if (!mounted) return;
-      setState(() {
-        _isLoading = false;
-        _errorMessage = 'Unable to load contacts.';
-      });
-    }
-  }
-
-  List<BusinessCard> get _visibleCards {
+  List<BusinessCard> _visibleCards(List<BusinessCard> inputCards) {
     final query = _searchController.text.trim().toLowerCase();
-    final cards = _cards.where((card) {
+
+    final cards = inputCards.where((card) {
       if (query.isEmpty) return true;
 
       return card.name.toLowerCase().contains(query) ||
@@ -70,14 +46,13 @@ class _ContactsScreenState extends State<ContactsScreen> {
     switch (_sortMode) {
       case ContactsSortMode.byName:
         cards.sort(
-          (first, second) => first.name.toLowerCase().compareTo(
-                second.name.toLowerCase(),
-              ),
+          (a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()),
         );
         break;
+
       case ContactsSortMode.byDate:
         cards.sort(
-          (first, second) => second.createdAt.compareTo(first.createdAt),
+          (a, b) => b.createdAt.compareTo(a.createdAt),
         );
         break;
     }
@@ -96,12 +71,12 @@ class _ContactsScreenState extends State<ContactsScreen> {
   Future<void> _openContact(BusinessCard card) async {
     final wasDeleted = await Navigator.of(context).push<bool>(
       MaterialPageRoute(
-        builder: (context) => ContactDetailScreen(card: card),
+        builder: (_) => ContactDetailScreen(card: card),
       ),
     );
 
     if (wasDeleted == true && mounted) {
-      await _loadCards();
+      await ref.read(contactsProvider.notifier).refresh();
     }
   }
 
@@ -110,7 +85,7 @@ class _ContactsScreenState extends State<ContactsScreen> {
 
     final memo = await showDialog<String>(
       context: context,
-      builder: (context) {
+      builder: (_) {
         return AlertDialog(
           title: const Text('Edit Memo'),
           content: TextField(
@@ -139,6 +114,7 @@ class _ContactsScreenState extends State<ContactsScreen> {
     );
 
     controller.dispose();
+
     if (memo == null || !mounted) return;
 
     final updatedCard = BusinessCard(
@@ -156,10 +132,10 @@ class _ContactsScreenState extends State<ContactsScreen> {
     );
 
     try {
-      await _storageService.updateCard(updatedCard);
-      await _loadCards();
+      await ref.read(contactsProvider.notifier).addCard(updatedCard);
     } catch (_) {
       if (!mounted) return;
+
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Failed to update memo')),
       );
@@ -171,12 +147,14 @@ class _ContactsScreenState extends State<ContactsScreen> {
     _searchController
       ..removeListener(_onSearchChanged)
       ..dispose();
+
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    final visibleCards = _visibleCards;
+    final cards = ref.watch(contactsProvider);
+    final visibleCards = _visibleCards(cards);
 
     return Scaffold(
       backgroundColor: Colors.white,
@@ -184,53 +162,33 @@ class _ContactsScreenState extends State<ContactsScreen> {
         child: Column(
           children: [
             _SearchRow(controller: _searchController),
-            _ContactsTabs(contactsCount: _cards.length),
+            _ContactsTabs(contactsCount: cards.length),
             _SortRow(
               sortMode: _sortMode,
               onChanged: _setSortMode,
             ),
             Expanded(
-              child: _buildBody(visibleCards),
+              child: visibleCards.isEmpty
+                  ? const _EmptyState()
+                  : ListView.separated(
+                      padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
+                      itemCount: visibleCards.length,
+                      separatorBuilder: (_, __) =>
+                          const SizedBox(height: 12),
+                      itemBuilder: (_, index) {
+                        final card = visibleCards[index];
+
+                        return _ContactCard(
+                          card: card,
+                          onTap: () => _openContact(card),
+                          onLongPress: () => _editMemo(card),
+                        );
+                      },
+                    ),
             ),
           ],
         ),
       ),
-    );
-  }
-
-  Widget _buildBody(List<BusinessCard> cards) {
-    if (_isLoading) {
-      return const Center(child: CircularProgressIndicator());
-    }
-
-    if (_errorMessage != null) {
-      return Center(
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Text(
-            _errorMessage!,
-            textAlign: TextAlign.center,
-          ),
-        ),
-      );
-    }
-
-    if (cards.isEmpty) {
-      return const _EmptyState();
-    }
-
-    return ListView.separated(
-      padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
-      itemCount: cards.length,
-      separatorBuilder: (_, _) => const SizedBox(height: 12),
-      itemBuilder: (context, index) {
-        final card = cards[index];
-        return _ContactCard(
-          card: card,
-          onTap: () => _openContact(card),
-          onLongPress: () => _editMemo(card),
-        );
-      },
     );
   }
 }
@@ -267,9 +225,7 @@ class _SearchRow extends StatelessWidget {
           TextButton(
             onPressed: () {
               ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('Tag search coming soon'),
-                ),
+                const SnackBar(content: Text('Tag search coming soon')),
               );
             },
             child: const Text('Search tags'),
@@ -427,7 +383,6 @@ class _SortButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return InkWell(
-      borderRadius: BorderRadius.circular(6),
       onTap: onTap,
       child: Padding(
         padding: const EdgeInsets.symmetric(vertical: 4),
@@ -451,24 +406,16 @@ class _EmptyState extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return const Center(
-      child: Padding(
-        padding: EdgeInsets.all(24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              Icons.credit_card_outlined,
-              size: 54,
-              color: Colors.black38,
-            ),
-            SizedBox(height: 16),
-            Text(
-              'Contacts you add will appear here',
-              textAlign: TextAlign.center,
-              style: TextStyle(color: Colors.black54, fontSize: 16),
-            ),
-          ],
-        ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(Icons.credit_card_outlined, size: 54, color: Colors.black38),
+          SizedBox(height: 16),
+          Text(
+            'Contacts you add will appear here',
+            style: TextStyle(color: Colors.black54, fontSize: 16),
+          ),
+        ],
       ),
     );
   }
@@ -518,15 +465,11 @@ class _ContactCard extends StatelessWidget {
               ],
               if (contactDetail != null && contactDetail.isNotEmpty) ...[
                 const SizedBox(height: 8),
-                Text(
-                  contactDetail,
-                  style: const TextStyle(color: Colors.black87),
-                ),
+                Text(contactDetail),
               ],
               if (memo != null && memo.isNotEmpty) ...[
                 const SizedBox(height: 10),
                 Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     const Icon(
                       Icons.push_pin_outlined,
