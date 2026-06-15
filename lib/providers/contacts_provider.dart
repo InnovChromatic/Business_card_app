@@ -22,9 +22,43 @@ class ContactsNotifier extends StateNotifier<List<BusinessCard>> {
     state = cards;
   }
 
-  Future<void> addCard(BusinessCard card) async {
-    await _storage.saveCard(card);
+  String _normalizePhone(String phone) {
+    return phone.replaceAll(RegExp(r'[^0-9+]'), '');
+  }
+
+  Future<bool> addCard(BusinessCard card) async {
+    await _storage.initialize();
+
+    final existingCards = _storage.getAllCards();
+
+    bool duplicate = false;
+
+    for (final existing in existingCards) {
+      final phoneMatch =
+          existing.phone != null &&
+          card.phone != null &&
+          _normalizePhone(existing.phone!) ==
+              _normalizePhone(card.phone!);
+
+      final emailMatch =
+          existing.email != null &&
+          card.email != null &&
+          existing.email!.toLowerCase() ==
+              card.email!.toLowerCase();
+
+      if (phoneMatch || emailMatch) {
+        duplicate = true;
+        break;
+      }
+    }
+
+    if (!duplicate) {
+      await _storage.saveCard(card);
+    }
+
     await loadCards();
+
+    return !duplicate;
   }
 
   Future<void> deleteCard(String id) async {

@@ -50,6 +50,10 @@
 	<key>NSPhotoLibraryAddUsageDescription</key>
 	<string>This app saves scanned business cards to your photo library.</string>
 
+	<!-- Contacts permission -->
+	<key>NSContactsUsageDescription</key>
+	<string>This app saves scanned business cards to your contacts.</string>
+
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>
