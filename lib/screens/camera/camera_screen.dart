@@ -8,6 +8,8 @@ import 'package:business_card_flutter/services/ocr_service.dart';
 import 'package:camera/camera.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:gal/gal.dart';
+import 'package:image_picker/image_picker.dart';
 
 class CameraScreen extends ConsumerStatefulWidget {
   const CameraScreen({super.key});
@@ -21,6 +23,7 @@ class _CameraScreenState extends ConsumerState<CameraScreen> {
   final OcrService _ocrService = OcrService();
   final CardStorageService _storageService = CardStorageService();
   final CardParserService _parserService = CardParserService();
+  final ImagePicker _picker = ImagePicker();
 
   CameraController? _controller;
   String? _errorMessage;
@@ -45,17 +48,86 @@ class _CameraScreenState extends ConsumerState<CameraScreen> {
         _controller = controller;
         _errorMessage = null;
       });
+
       ref.read(cameraStateProvider.notifier).state = CameraState.ready;
     } on CameraException catch (error) {
       if (!mounted) return;
+
       setState(() => _errorMessage = _cameraErrorMessage(error));
       ref.read(cameraStateProvider.notifier).state = CameraState.error;
     } catch (_) {
       if (!mounted) return;
+
       setState(() {
         _errorMessage = 'Unable to start the camera. Please try again.';
       });
+
       ref.read(cameraStateProvider.notifier).state = CameraState.error;
+    }
+  }
+
+  Future<void> _processImagePath(String imagePath) async {
+    try {
+      final rawText = await _ocrService.extractText(imagePath);
+      if (!mounted) return;
+
+      final now = DateTime.now();
+
+      final card = ScannedCard(
+        id: now.microsecondsSinceEpoch.toString(),
+        imagePath: imagePath,
+        rawText: rawText,
+        synced: false,
+        createdAt: now,
+      );
+
+      try {
+        await _storageService.saveCard(card);
+      } catch (_) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Scan save failed locally')),
+        );
+      }
+
+      final parsedData = _parserService.parse(rawText);
+
+      if (!mounted) return;
+      await Navigator.of(context).push<void>(
+        MaterialPageRoute(
+          builder: (context) =>
+              CardReviewScreen(data: parsedData, imagePath: imagePath),
+        ),
+      );
+    } catch (_) {
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('OCR failed. Please try again.')),
+      );
+    }
+  }
+
+  Future<void> _pickFromGallery() async {
+    try {
+      final image = await _picker.pickImage(source: ImageSource.gallery);
+
+      if (image == null) return;
+
+      ref.read(cameraStateProvider.notifier).state = CameraState.capturing;
+
+      await _processImagePath(image.path);
+
+      if (!mounted) return;
+      ref.read(cameraStateProvider.notifier).state = CameraState.ready;
+    } catch (_) {
+      if (!mounted) return;
+
+      ref.read(cameraStateProvider.notifier).state = CameraState.ready;
+
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Gallery import failed')));
     }
   }
 
@@ -73,42 +145,22 @@ class _CameraScreenState extends ConsumerState<CameraScreen> {
 
     try {
       final image = await _cameraService.captureImage(controller);
-      final rawText = await _ocrService.extractText(image.path);
-      if (!mounted) return;
-
-      ref.read(cameraStateProvider.notifier).state = CameraState.ready;
-
-      final now = DateTime.now();
-      final card = ScannedCard(
-        id: now.microsecondsSinceEpoch.toString(),
-        imagePath: image.path,
-        rawText: rawText,
-        synced: false,
-        createdAt: now,
-      );
 
       try {
-        await _storageService.saveCard(card);
-      } catch (_) {
-        if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Scan save failed locally')),
-        );
+        await Gal.putImage(image.path);
+      } catch (e) {
+        debugPrint('Gallery save failed: $e');
       }
 
-      if (!mounted) return;
-      final parsedData = _parserService.parse(rawText);
-      await Navigator.of(context).push<void>(
-        MaterialPageRoute(
-          builder: (context) => CardReviewScreen(
-            data: parsedData,
-            imagePath: image.path,
-          ),
-        ),
-      );
-    } catch (_) {
+      await _processImagePath(image.path);
+
       if (!mounted) return;
       ref.read(cameraStateProvider.notifier).state = CameraState.ready;
+    } catch (_) {
+      if (!mounted) return;
+
+      ref.read(cameraStateProvider.notifier).state = CameraState.ready;
+
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Scan failed. Please try again.')),
       );
@@ -157,8 +209,17 @@ class _CameraScreenState extends ConsumerState<CameraScreen> {
             ),
             const _ScanModeSelector(),
             const SizedBox(height: 24),
-            _CaptureButton(
-              onPressed: isCapturing ? null : _captureAndRecognizeText,
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                _GalleryButton(
+                  onPressed: isCapturing ? null : _pickFromGallery,
+                ),
+                const SizedBox(width: 32),
+                _CaptureButton(
+                  onPressed: isCapturing ? null : _captureAndRecognizeText,
+                ),
+              ],
             ),
             const SizedBox(height: 28),
           ],
@@ -225,11 +286,12 @@ class _CameraContent extends StatelessWidget {
         return const Center(
           child: CircularProgressIndicator(color: Colors.white),
         );
+
       case CameraState.capturing:
       case CameraState.ready:
         final cameraController = controller;
-        if (cameraController == null ||
-            !cameraController.value.isInitialized) {
+
+        if (cameraController == null || !cameraController.value.isInitialized) {
           return const Center(
             child: CircularProgressIndicator(color: Colors.white),
           );
@@ -258,6 +320,7 @@ class _CameraContent extends StatelessWidget {
             ],
           ),
         );
+
       case CameraState.error:
         return Center(
           child: Padding(
@@ -286,8 +349,7 @@ class _ScannerOverlay extends StatelessWidget {
       builder: (context, constraints) {
         final guideWidth = constraints.maxWidth - (_horizontalPadding * 2);
         final guideHeight = guideWidth / _cardAspectRatio;
-        final verticalOverlayHeight =
-            (constraints.maxHeight - guideHeight) / 2;
+        final verticalOverlayHeight = (constraints.maxHeight - guideHeight) / 2;
 
         return Stack(
           children: [
@@ -386,6 +448,29 @@ class _ScanModeSelector extends ConsumerWidget {
       case ScanMode.qr:
         return 'QR';
     }
+  }
+}
+
+class _GalleryButton extends StatelessWidget {
+  const _GalleryButton({required this.onPressed});
+
+  final VoidCallback? onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.white24,
+      shape: const CircleBorder(),
+      child: InkWell(
+        customBorder: const CircleBorder(),
+        onTap: onPressed,
+        child: const SizedBox(
+          width: 64,
+          height: 64,
+          child: Icon(Icons.photo_library, color: Colors.white, size: 30),
+        ),
+      ),
+    );
   }
 }
 
