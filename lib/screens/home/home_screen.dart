@@ -1,5 +1,6 @@
 import 'package:business_card_flutter/models/user_profile.dart';
 import 'package:business_card_flutter/providers/profile_provider.dart';
+import 'package:business_card_flutter/screens/messages/messages_screen.dart';
 import 'package:business_card_flutter/screens/notifications/notifications_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -54,12 +55,6 @@ class HomeScreen extends ConsumerWidget {
 class _Header extends StatelessWidget {
   const _Header();
 
-  void _showPlaceholder(BuildContext context, String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(message)),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     return Container(
@@ -89,10 +84,13 @@ class _Header extends StatelessWidget {
               mainAxisAlignment: MainAxisAlignment.end,
               children: [
                 IconButton(
-                  onPressed: () => _showPlaceholder(
-                    context,
-                    'Messages screen coming soon',
-                  ),
+                  onPressed: () {
+                    Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (_) => const MessagesScreen(),
+                      ),
+                    );
+                  },
                   icon: const Icon(Icons.chat_bubble_outline),
                 ),
                 IconButton(

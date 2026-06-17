@@ -16,10 +16,8 @@ android {
     }
 
     defaultConfig {
-        // TODO: Specify your own unique Application ID.
         applicationId = "com.example.business_card_flutter"
 
-        // Flutter defaults
         minSdk = flutter.minSdkVersion
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
@@ -30,6 +28,10 @@ android {
         release {
             // Signing with debug key for now
             signingConfig = signingConfigs.getByName("debug")
+
+            // Disable R8 / code shrinking to avoid ML Kit missing class crash
+            isMinifyEnabled = false
+            isShrinkResources = false
         }
     }
 }
